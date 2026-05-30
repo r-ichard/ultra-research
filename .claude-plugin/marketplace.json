@@ -1,0 +1,13 @@
+{
+  "name": "ultra-research",
+  "owner": {
+    "name": "Richard Raduly"
+  },
+  "plugins": [
+    {
+      "name": "ultra-research",
+      "source": "./",
+      "description": "Faithful web research → a folder of clean markdown. Claude browses, judges each page, keeps only the good ones."
+    }
+  ]
+}

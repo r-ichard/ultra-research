@@ -1,0 +1,10 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# Local research output (in case anyone runs the tool from inside this repo)
+research/
+
+# Editor / OS cruft
+.DS_Store

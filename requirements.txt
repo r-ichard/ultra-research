@@ -1,0 +1,8 @@
+# Pinned for a publicly distributed silent installer — see docs/PACKAGING.md.
+# crawl4ai (the heavy, security-relevant dependency) is pinned exactly to the
+# tested version; the parsing deps are capped below the next major to avoid an
+# unreviewed breaking/compromised release being auto-pulled on first run.
+crawl4ai==0.8.6
+beautifulsoup4>=4.12,<5
+lxml>=5.0,<7
+python-dateutil>=2.8,<3
