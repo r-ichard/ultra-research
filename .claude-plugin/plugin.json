@@ -2,7 +2,7 @@
   "name": "ultra-research",
   "displayName": "Ultra Research",
   "description": "Faithful web research → a folder of clean markdown (aggregation, not synthesis). Claude browses, judges each page, and keeps only the good ones. First run silently installs a headless browser (~200MB) under ~/.local/share/ultra-research.",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "author": {
     "name": "Richard Raduly"
   },

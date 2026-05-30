@@ -195,17 +195,17 @@ Full write-up: [`docs/PACKAGING.md`](docs/PACKAGING.md).
 
 ```text
 .claude-plugin/
-  plugin.json         plugin manifest
-  marketplace.json    makes this repo installable as a marketplace
+  plugin.json           plugin manifest
+  marketplace.json      makes this repo installable as a marketplace
 skills/research/
-  SKILL.md            the plan-first, LLM-driven skill that orchestrates the tools
-scripts/
-  bootstrap.py        silent first-run installer; execs the tools through a managed venv
-  lib.py              stealth crawl4ai fetch + clean markdown + quality signals + SERP discovery
-  serp.py             tool 1: dump candidate result links for Claude to pick
-  fetch.py            tool 2: fetch + inspect + stage; --keep / --drop to commit or discard
-  extract_meta.py     published / updated / author / org from JSON-LD + meta tags
-requirements.txt      pinned deps (installed into the managed venv on first run)
+  SKILL.md              the plan-first, LLM-driven skill that orchestrates the tools
+  requirements.txt      pinned deps (installed into the managed venv on first run)
+  scripts/
+    bootstrap.py        silent first-run installer; execs the tools through a managed venv
+    lib.py              stealth crawl4ai fetch + clean markdown + quality signals + SERP discovery
+    serp.py             tool 1: dump candidate result links for Claude to pick
+    fetch.py            tool 2: fetch + inspect + stage; --keep / --drop to commit or discard
+    extract_meta.py     published / updated / author / org from JSON-LD + meta tags
 ```
 
 Engines are SERP URL templates in `lib.py` (`ENGINES`). `google` / `brave` / `duckduckgo` are reliable; `bing` / `qwant` are reachable but experimental (variance / SPA).

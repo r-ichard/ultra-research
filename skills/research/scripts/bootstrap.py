@@ -29,9 +29,8 @@ import sys
 import venv
 from pathlib import Path
 
-PLUGIN_ROOT = Path(__file__).resolve().parent.parent
-SCRIPTS = PLUGIN_ROOT / "scripts"
-REQUIREMENTS = PLUGIN_ROOT / "requirements.txt"
+SCRIPTS = Path(__file__).resolve().parent           # skills/research/scripts
+REQUIREMENTS = SCRIPTS.parent / "requirements.txt"   # skills/research/requirements.txt
 
 TOOLS = {"serp": SCRIPTS / "serp.py", "fetch": SCRIPTS / "fetch.py"}
 

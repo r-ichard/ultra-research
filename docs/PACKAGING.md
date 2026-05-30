@@ -25,16 +25,24 @@ marketplace**:
 
 ```
 .claude-plugin/plugin.json       plugin manifest (name: ultra-research)
-.claude-plugin/marketplace.json  marketplace manifest (source: "./" → plugin at repo root)
-skills/research/SKILL.md         the orchestrating skill (invoked /ultra-research:research
+.claude-plugin/marketplace.json  marketplace manifest (name: r-ichard, source: "./")
+skills/research/
+  SKILL.md                       the orchestrating skill (invoked /ultra-research:research
                                  or by natural language: "research X on the web")
-scripts/bootstrap.py             silent installer + tool launcher (stdlib only)
-scripts/{lib,serp,fetch,extract_meta}.py   the engine + the two tools
-requirements.txt                 deps installed into the managed venv
+  requirements.txt               deps installed into the managed venv
+  scripts/bootstrap.py           silent installer + tool launcher (stdlib only)
+  scripts/{lib,serp,fetch,extract_meta}.py   the engine + the two tools
 ```
 
 Skills inside plugins are namespaced: this one is invoked as `/ultra-research:research`.
 Natural-language triggers in the skill's `description` also activate it automatically.
+
+**Two structural rules this layout enforces (both were real bugs once):**
+- The engine lives **inside** the skill dir so `SKILL.md` can call it via
+  `${CLAUDE_SKILL_DIR}/scripts/...` — the variable that is substituted into skill
+  content. `${CLAUDE_PLUGIN_ROOT}` is only for hooks/MCP/LSP config, not skill bodies.
+- `.gitignore` uses **root-anchored** `/research/` for output, so it can never match
+  the `skills/research/` skill directory (an unanchored `research/` silently did).
 
 ## The silent bootstrap (key design decision)
 
