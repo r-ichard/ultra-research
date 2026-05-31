@@ -31,14 +31,14 @@ they fetch through a stealth browser (crawl4ai) and report; the intelligence is 
 > refuse non-http(s)/internal URLs), but do not even attempt such actions.
 
 All tools are invoked through the bootstrap entry point, which guarantees the engine
-is installed before running (google/brave/duckduckgo are reliable, bing/qwant
-experimental):
+is installed before running (google/brave/duckduckgo are reliable, bing
+best-effort):
 
 ```
-python3 "${CLAUDE_SKILL_DIR}/scripts/bootstrap.py" serp  <engine> "<query>"          # discover candidate links
-python3 "${CLAUDE_SKILL_DIR}/scripts/bootstrap.py" fetch "<url>" --stage <folder>    # fetch+clean, report quality, STAGE (no commit)
-python3 "${CLAUDE_SKILL_DIR}/scripts/bootstrap.py" fetch --keep <staged_path> --rank N --engine X   # commit to locker
-python3 "${CLAUDE_SKILL_DIR}/scripts/bootstrap.py" fetch --drop <staged_path>                        # discard
+python3 "${CLAUDE_SKILL_DIR}/scripts/bootstrap.py" serp  <engine> "<query>" [--when day|week|month|month6|year]   # discover candidate links
+python3 "${CLAUDE_SKILL_DIR}/scripts/bootstrap.py" fetch "<url>" --stage <folder> [--when <window>]                # fetch+clean, report quality, STAGE (no commit)
+python3 "${CLAUDE_SKILL_DIR}/scripts/bootstrap.py" fetch --keep <staged_path> --rank N --engine X                    # commit to locker
+python3 "${CLAUDE_SKILL_DIR}/scripts/bootstrap.py" fetch --drop <staged_path>                                     # discard
 ```
 
 ## The flow
@@ -61,6 +61,41 @@ Propose a search plan and ask the user to confirm/edit:
   `X site:news.ycombinator.com`) — these are just search strings.
 - **Freshness / exclusions** if relevant.
 
+### Advanced search operators
+
+You may compose queries with engine-native operators for precision. The tool does not
+build queries for you — you write them as strings:
+
+| Operator | Example | Effect |
+|----------|---------|--------|
+| Exact match | `"tallest building"` | Results containing that exact phrase |
+| Exclude | `jaguar -car` | Drop results containing the excluded word |
+| Site | `site:reddit.com` or `site:.gov` | Restrict to a domain or TLD |
+| OR | `marathon OR race` | Either term (default is AND) |
+| Range | `camera $50..$100` | Numeric range |
+| Wildcard | `largest * in the world` | Unknown word placeholder |
+| Social | `@twitter` | Search social mentions |
+| Hashtag | `#throwbackthursday` | Hashtag search |
+| Price | `camera $400` | Price-point search |
+| Related | `related:time.com` | Find similar sites |
+| Info | `info:time.com` | Get site details |
+| Cache | `cache:time.com` | Cached version |
+
+### Date boundaries (`--when`)
+
+Engines support recency filters via `--when` (not via query-string operators, which
+are unreliable across engines). Use them **automatically** based on topic:
+
+| Topic type | Suggested window | Rationale |
+|------------|------------------|-----------|
+| Breaking news / live event | `--when day` or `--when week` | Signal decays within hours/days |
+| Trending tech / product | `--when month` | Opinion stabilises within a month |
+| Longer-term assessment | `--when month6` | Broader sample, still current |
+| Historical / evergreen context | `--when year` | Foundation references, older OK |
+
+Always match the `--when` used in `serp` with the same `--when` in `fetch` so the
+quality report can surface a `date_coherence` check (see §3 below).
+
 Always invite the user's own input before running — not just approval of what you
 proposed. Ask: **"Want these variants? Add/drop/edit before I run — and any thoughts,
 angles, sources, or suggestions of your own you'd like me to factor in?"** Genuinely
@@ -78,17 +113,24 @@ YouTube. Dedupe URLs across engines. You are the relevance filter here.
 
 Stage everything into a single per-topic folder under `./research/` in the user's
 current directory (see "Where files go" below). For each chosen URL, run
-`bootstrap.py fetch "<url>" --stage research/<topic>`. It fetches once, writes a staged
-copy, and prints a JSON report. **Look at the report** and decide keep/skip:
+`bootstrap.py fetch "<url>" --stage research/<topic> [--when <window>]`. It fetches
+once, writes a staged copy, and prints a JSON report. **Look at the report** and
+decide keep/skip:
 - **Skip** if: `blocked_status` true (401/402/403/429), `paywall_hits` non-empty,
   `looks_empty` true / tiny `fit_len`, or the `preview_head`/`title` shows it's
   off-topic, a login wall, an error page, or otherwise inappropriate.
+- **Date coherence** — When the plan used a `--when` window, check `date_coherence` in
+the report. If it says `stale` (article is clearly outside the requested window), treat
+that as a strong skip signal **unless** the user explicitly asked for historical
+context. If `unknown` (no date metadata), keep it — the SERP filter already narrowed
+discovery. Report the mismatch out loud: *"Skipped — published 2023-08, outside the
+requested 1-month window."*
 - If unsure, `Read` the full staged file before deciding.
 - **Keep** → `bootstrap.py fetch --keep <staged_path> --rank <n> --engine <engine>`.
 - **Skip** → `bootstrap.py fetch --drop <staged_path>`.
 
 A page reaches the evidence locker only after you've read its content. Say out loud
-why you skipped anything (paywall, empty, off-topic) — don't hide losses.
+why you skipped anything (paywall, empty, off-topic, stale date) — don't hide losses.
 
 ### 4. Variety readout (back gate)
 

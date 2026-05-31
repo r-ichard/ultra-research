@@ -57,7 +57,30 @@ ENGINES: dict[str, str] = {
     "brave": "https://search.brave.com/search?q={q}",
     "duckduckgo": "https://html.duckduckgo.com/html/?q={q}",
     "bing": "https://www.bing.com/search?q={q}&count=20&setlang=en-US&mkt=en-US",
-    "qwant": "https://lite.qwant.com/?q={q}&t=web",
+}
+
+# Engine-specific date-filter URL parameters.
+# `sbd:1` on Google additionally sorts by date so the freshest results bubble up.
+TIME_PARAMS: dict[str, dict[str, str]] = {
+    "google": {
+        "day": "&tbs=qdr:d,sbd:1",
+        "week": "&tbs=qdr:w,sbd:1",
+        "month": "&tbs=qdr:m,sbd:1",
+        "month6": "&tbs=qdr:m6,sbd:1",
+        "year": "&tbs=qdr:y,sbd:1",
+    },
+    "brave": {
+        "day": "&tf=pd",
+        "week": "&tf=pw",
+        "month": "&tf=pm",
+        "year": "&tf=p1y",
+    },
+    "duckduckgo": {
+        "day": "&df=d",
+        "week": "&df=w",
+        "month": "&df=m",
+        "year": "&df=y",
+    },
 }
 
 _CONSENT_COOKIES = [
@@ -75,7 +98,7 @@ _PAYWALL_HINTS = (
 
 # Engine/infra hosts that are never organic results.
 _INFRA = ("google.", "gstatic.", "googleusercontent.", "bing.com/ck", "microsoft.",
-          "msn.com/", "brave.com", "duckduckgo.com", "qwant.com", "policies.",
+          "msn.com/", "brave.com", "duckduckgo.com", "policies.",
           "support.", "accounts.", "go.microsoft", "javascript:", "#")
 
 
@@ -119,8 +142,13 @@ class Page:
         return self.status_code in (401, 402, 403, 429)
 
 
-def serp_url(engine: str, query: str) -> str:
-    return ENGINES[engine].format(q=quote_plus(query))
+def serp_url(engine: str, query: str, when: Optional[str] = None) -> str:
+    url = ENGINES[engine].format(q=quote_plus(query))
+    if when:
+        param = TIME_PARAMS.get(engine, {}).get(when)
+        if param:
+            url += param
+    return url
 
 
 def _browser() -> BrowserConfig:
@@ -230,11 +258,11 @@ def detect_block(page: "Page") -> Optional[str]:
     return None
 
 
-async def serp_candidates(engine: str, query: str) -> dict:
+async def serp_candidates(engine: str, query: str, when: Optional[str] = None) -> dict:
     """Fetch a SERP and return candidate links for Claude to pick from, plus a
     block signal so a CAPTCHA/anti-bot wall isn't mistaken for 'no results'.
     Light infra filtering only — relevance judgment is Claude's job."""
-    page = await fetch(serp_url(engine, query), clean=False)
+    page = await fetch(serp_url(engine, query, when), clean=False)
     blocked = detect_block(page)
     out, seen = [], set()
     if not blocked:
