@@ -25,9 +25,11 @@ def main() -> None:
     ap.add_argument("engine", choices=list(ENGINES))
     ap.add_argument("query")
     ap.add_argument("--json", action="store_true", help="emit JSON instead of a readable list")
+    ap.add_argument("--when", choices=["day", "week", "month", "month6", "year"],
+                    help="restrict results to a recent window (engine-specific)")
     args = ap.parse_args()
 
-    result = asyncio.run(serp_candidates(args.engine, args.query))
+    result = asyncio.run(serp_candidates(args.engine, args.query, args.when))
     if args.json:
         print(json.dumps(result, indent=2, ensure_ascii=False))
         return

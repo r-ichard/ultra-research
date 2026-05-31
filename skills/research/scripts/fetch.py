@@ -17,13 +17,24 @@ import hashlib
 import json
 import re
 import sys
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from urllib.parse import urlparse
+
+from dateutil import parser as date_parser
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from lib import fetch as fetch_page  # noqa: E402
 from extract_meta import extract_metadata  # noqa: E402
+
+# Day counts that approximate each search-engine date-window.
+_WINDOW_DAYS = {
+    "day": 1,
+    "week": 7,
+    "month": 30,
+    "month6": 180,
+    "year": 365,
+}
 
 STAGING = ".staging"
 _STAGED_HASH = re.compile(r"^[0-9a-f]{12}\.md$")
@@ -57,6 +68,30 @@ def _validate_staged(staged) -> Path:
     return _under_cwd(p)
 
 
+def _date_coherence(published: str, updated: str, when: str) -> str:
+    """Return 'fresh', 'stale', 'unknown', or 'ambiguous' based on whether the
+    article's date falls inside the requested --when window."""
+    if not when or when not in _WINDOW_DAYS:
+        return "n/a"
+    cutoff = datetime.now(timezone.utc) - timedelta(days=_WINDOW_DAYS[when])
+    dates = []
+    for raw in (updated, published):
+        if raw and raw != "unknown":
+            try:
+                dt = date_parser.parse(raw)
+                if dt.tzinfo is None:
+                    dt = dt.replace(tzinfo=timezone.utc)
+                dates.append(dt)
+            except Exception:
+                return "ambiguous"
+    if not dates:
+        return "unknown"
+    # If ANY date (updated or published) is within the window → fresh.
+    if any(dt >= cutoff for dt in dates):
+        return "fresh"
+    return "stale"
+
+
 def _frontmatter(meta: dict, final_url: str, engine: str, rank, fetched_at: str) -> str:
     def esc(v):
         v = str(v).replace("\n", " ").strip()
@@ -72,7 +107,7 @@ def _frontmatter(meta: dict, final_url: str, engine: str, rank, fetched_at: str)
     return f"---\n{body}\n---\n"
 
 
-async def do_stage(url: str, folder: Path) -> None:
+async def do_stage(url: str, folder: Path, when: str | None = None) -> None:
     folder = _safe_stage_dir(folder)
     page = await fetch_page(url, clean=True)
     # Rich metadata (published/updated/author/org) comes from the page HTML (JSON-LD,
@@ -90,6 +125,11 @@ async def do_stage(url: str, folder: Path) -> None:
         (page.fit_markdown or "_(empty)_") + "\n", encoding="utf-8")
 
     md = page.fit_markdown or ""
+    coherence = _date_coherence(
+        meta.get("published", "unknown"),
+        meta.get("updated", "unknown"),
+        when,
+    )
     report = {
         "requested_url": url,
         "final_url": page.final_url,
@@ -100,6 +140,9 @@ async def do_stage(url: str, folder: Path) -> None:
         "author": meta.get("author", "unknown"),
         "org": meta.get("org", "unknown"),
         "published": meta.get("published", "unknown"),
+        "updated": meta.get("updated", "unknown"),
+        "date_coherence": coherence,
+        "requested_window": when or "n/a",
         "raw_len": page.raw_len,
         "fit_len": page.fit_len,
         "fit_ratio": page.fit_ratio,
@@ -143,6 +186,8 @@ def main() -> None:
     ap.add_argument("--drop", help="staged path to delete")
     ap.add_argument("--rank", default=99, help="rank to assign when keeping")
     ap.add_argument("--engine", default="?", help="engine attribution when keeping")
+    ap.add_argument("--when", choices=["day", "week", "month", "month6", "year"],
+                    help="expected recency window (used for date-coherence check)")
     args = ap.parse_args()
 
     if args.keep:
@@ -151,7 +196,7 @@ def main() -> None:
         do_drop(Path(args.drop))
     elif args.url and args.stage:
         try:
-            asyncio.run(do_stage(args.url, Path(args.stage)))
+            asyncio.run(do_stage(args.url, Path(args.stage), args.when))
         except ValueError as e:
             sys.exit(f"refusing to fetch: {e}")
     else:
